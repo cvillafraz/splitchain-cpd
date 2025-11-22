@@ -13,7 +13,6 @@
     "@coinbase/cdp-hooks": "0.0.66",
     "@coinbase/cdp-react": "0.0.67",
     "@coinbase/onchainkit": "latest",
-    "@coinbase/wallet-sdk": "4.0.0",
     "@emotion/is-prop-valid": "1.3.1",
     "@hookform/resolvers": "3.9.0",
     "@metamask/sdk": "0.33.1",
@@ -85,7 +84,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@coinbase/onchainkit": "0.36.0",
+      "@coinbase/onchainkit": "0.37.5",
       "viem": "2.23.5",
       "wagmi": "2.14.12"
     }
