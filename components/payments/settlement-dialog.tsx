@@ -5,13 +5,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2, Zap } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAccount } from "wagmi"
 
 interface Expense {
-  id: number
+  id: string
   description: string
   amount: number
-  share: number
-  to?: string
+  currency: string
+  paidBy: string
+  shares: Record<string, number>
+  date: string
 }
 
 interface SettlementDialogProps {
@@ -25,10 +28,15 @@ type SettlementStep = "review" | "processing" | "success"
 export function SettlementDialog({ open, onOpenChange, expense }: SettlementDialogProps) {
   const [step, setStep] = useState<SettlementStep>("review")
   const [txHash, setTxHash] = useState<string>("")
+  const { address } = useAccount()
+
+  const userAddress = address?.toLowerCase() || ""
+  const myShare = expense?.shares?.[userAddress] || 0
+  const payerAddress = expense?.paidBy?.toLowerCase() || ""
+  const payerName = payerAddress === userAddress ? "You" : `${payerAddress.slice(0, 6)}...${payerAddress.slice(-4)}`
 
   const handlePay = () => {
     setStep("processing")
-    // Simulate blockchain transaction
     setTimeout(() => {
       setTxHash("0x8f3d...4a2c")
       setStep("success")
@@ -39,6 +47,8 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
     setStep("review")
     onOpenChange(false)
   }
+
+  if (!expense) return null
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -59,7 +69,7 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
                 <div className="p-6 bg-muted rounded-xl border border-border/50">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm text-muted-foreground">Payment Amount</span>
-                    <div className="text-3xl font-bold">${expense.share.toFixed(2)}</div>
+                    <div className="text-3xl font-bold">${myShare.toFixed(2)}</div>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -68,7 +78,7 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">To</span>
-                      <span className="font-medium">{expense.to}</span>
+                      <span className="font-medium">{payerName}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Network Fee</span>
@@ -138,11 +148,11 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
               <div className="p-4 bg-muted rounded-xl border border-border/50 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount Paid</span>
-                  <span className="font-bold">${expense.share.toFixed(2)}</span>
+                  <span className="font-bold">${myShare.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">To</span>
-                  <span className="font-medium">{expense.to}</span>
+                  <span className="font-medium">{payerName}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Transaction Hash</span>

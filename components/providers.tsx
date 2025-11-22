@@ -3,13 +3,13 @@
 import type React from "react"
 import { useState } from "react"
 import { OnchainKitProvider } from "@coinbase/onchainkit"
-import { base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom } from "wagmi/chains"
+import { base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom, sepolia } from "wagmi/chains"
 import { WagmiProvider, createConfig, http } from "wagmi"
 import { coinbaseWallet } from "wagmi/connectors"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 const wagmiConfig = createConfig({
-  chains: [base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom],
+  chains: [sepolia, base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom],
   connectors: [
     coinbaseWallet({
       appName: "Splitchain",
@@ -17,6 +17,7 @@ const wagmiConfig = createConfig({
     }),
   ],
   transports: {
+    [sepolia.id]: http(),
     [base.id]: http(),
     [mainnet.id]: http(),
     [arbitrum.id]: http(),
@@ -40,7 +41,7 @@ export function Providers({ children, apiKey, projectId }: ProvidersProps) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <OnchainKitProvider apiKey={apiKey} chain={base} projectId={projectId}>
+        <OnchainKitProvider apiKey={apiKey} chain={sepolia} projectId={projectId}>
           {children}
         </OnchainKitProvider>
       </QueryClientProvider>

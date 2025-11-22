@@ -16,4 +16,6 @@ export const USDC_CONTRACTS: Record<number, `0x${string}`> = {
   56: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
   // Fantom
   250: "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",
+  // Sepolia (testnet)
+  11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
 } as const

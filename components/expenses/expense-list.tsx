@@ -1,19 +1,28 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
-import { ArrowUpRight, ArrowDownLeft, Zap, RefreshCw } from "lucide-react"
+import { ArrowUpRight, ArrowDownLeft, Zap, RefreshCw, Trash2 } from "lucide-react"
 import { SettlementDialog } from "@/components/payments/settlement-dialog"
-import { getTransactions } from "@/lib/filecoin-storage"
+import { TransactionDetailDialog } from "@/components/expenses/transaction-detail-dialog"
+import { getTransactions, deleteTransaction } from "@/lib/storage"
+import { useAccount } from "wagmi"
+import { useToast } from "@/hooks/use-toast"
 
 export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
+  const { address } = useAccount()
+  const { toast } = useToast()
   const [expenses, setExpenses] = useState<any[]>([])
   const [selectedExpense, setSelectedExpense] = useState<any | null>(null)
   const [isSettlementOpen, setIsSettlementOpen] = useState(false)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   const loadExpenses = async () => {
     setIsLoading(true)
@@ -33,9 +42,67 @@ export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
     loadExpenses()
   }, [refreshTrigger])
 
-  const handleSettleUp = (expense: any) => {
+  const handleSettleUp = (e: React.MouseEvent, expense: any) => {
+    e.stopPropagation()
     setSelectedExpense(expense)
     setIsSettlementOpen(true)
+  }
+
+  const handleViewDetail = (expense: any) => {
+    setSelectedExpense(expense)
+    setIsDetailOpen(true)
+  }
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm("Are you sure you want to delete this expense?")) return
+
+    setIsDeleting(id)
+    try {
+      await deleteTransaction(id)
+      toast({
+        title: "Expense deleted",
+        description: "The expense has been successfully removed.",
+      })
+      loadExpenses()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete expense.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  const calculateUserAmount = (expense: any) => {
+    if (!address) return { amount: 0, type: "settled" }
+
+    const userAddress = address.toLowerCase()
+    const paidByAddress = expense.paidBy?.toLowerCase() || ""
+    const shares = expense.shares || {}
+
+    let myShare = 0
+    Object.entries(shares).forEach(([participant, share]) => {
+      if (participant.toLowerCase() === userAddress) {
+        myShare = Number(share)
+      }
+    })
+
+    const iPaid = paidByAddress === userAddress
+
+    if (iPaid) {
+      let othersOweMe = 0
+      Object.entries(shares).forEach(([participant, share]) => {
+        if (participant.toLowerCase() !== userAddress) {
+          othersOweMe += Number(share)
+        }
+      })
+      return { amount: othersOweMe, type: othersOweMe > 0.01 ? "owed" : "settled" }
+    } else {
+      return { amount: myShare, type: myShare > 0.01 ? "owing" : "settled" }
+    }
   }
 
   if (isLoading) {
@@ -63,72 +130,93 @@ export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
     <>
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-4">
-          {expenses.map((expense) => (
-            <Card key={expense.id} className="p-4 bg-card/50 hover:bg-card/80 transition-colors border-border/40">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  <div
-                    className={`p-2 rounded-full ${
-                      expense.type === "owed"
-                        ? "bg-secondary/10 text-secondary"
-                        : expense.type === "owing"
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {expense.type === "owed" ? (
-                      <ArrowDownLeft className="h-5 w-5" />
-                    ) : expense.type === "owing" ? (
-                      <ArrowUpRight className="h-5 w-5" />
-                    ) : (
-                      <ArrowUpRight className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium leading-none">{expense.description}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(expense.date), { addSuffix: true })} • {expense.chain} •{" "}
-                      {expense.currency}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+          {expenses.map((expense) => {
+            const { amount: userAmount, type: userType } = calculateUserAmount(expense)
+
+            return (
+              <Card
+                key={expense.id}
+                className="p-4 bg-card/50 hover:bg-card/80 transition-colors border-border/40 group cursor-pointer"
+                onClick={() => handleViewDetail(expense)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-1">
                     <div
-                      className={`font-bold ${
-                        expense.type === "owed"
-                          ? "text-secondary"
-                          : expense.type === "owing"
-                            ? "text-destructive"
-                            : "text-muted-foreground line-through"
+                      className={`p-2 rounded-full ${
+                        userType === "owed"
+                          ? "bg-secondary/10 text-secondary"
+                          : userType === "owing"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {expense.type === "owed" ? "+" : "-"}
-                      {expense.amount.toFixed(4)} {expense.currency}
+                      {userType === "owed" ? (
+                        <ArrowDownLeft className="h-5 w-5" />
+                      ) : userType === "owing" ? (
+                        <ArrowUpRight className="h-5 w-5" />
+                      ) : (
+                        <ArrowUpRight className="h-5 w-5" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                      {expense.type === "owed" ? "lent" : expense.type === "owing" ? "borrowed" : "settled"}
-                    </p>
+                    <div className="flex-1">
+                      <h4 className="font-medium leading-none">{expense.description}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(expense.date), { addSuffix: true })} • {expense.chain} •{" "}
+                        {expense.currency} • Paid by{" "}
+                        {expense.paidBy.toLowerCase() === address?.toLowerCase() ? "You" : "Friend"}
+                      </p>
+                    </div>
                   </div>
-                  {expense.type === "owing" && (
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div
+                        className={`font-bold ${
+                          userType === "owed"
+                            ? "text-secondary"
+                            : userType === "owing"
+                              ? "text-destructive"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {userType === "owed" ? "+" : userType === "owing" ? "-" : ""}
+                        {userAmount.toFixed(2)} {expense.currency}
+                      </div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                        {userType === "owed" ? "you're owed" : userType === "owing" ? "you owe" : "not involved"}
+                      </p>
+                    </div>
+                    {userType === "owing" && (
+                      <Button
+                        onClick={(e) => handleSettleUp(e, expense)}
+                        size="sm"
+                        className="bg-secondary hover:bg-secondary/90 text-secondary-foreground gap-1"
+                      >
+                        <Zap className="h-3 w-3" />
+                        Settle
+                      </Button>
+                    )}
                     <Button
-                      onClick={() => handleSettleUp(expense)}
-                      size="sm"
-                      className="bg-secondary hover:bg-secondary/90 text-secondary-foreground gap-1"
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      onClick={(e) => handleDelete(e, expense.id)}
+                      disabled={isDeleting === expense.id}
                     >
-                      <Zap className="h-3 w-3" />
-                      Settle
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
         </div>
       </ScrollArea>
 
       {selectedExpense && (
-        <SettlementDialog open={isSettlementOpen} onOpenChange={setIsSettlementOpen} expense={selectedExpense} />
+        <>
+          <SettlementDialog open={isSettlementOpen} onOpenChange={setIsSettlementOpen} expense={selectedExpense} />
+          <TransactionDetailDialog open={isDetailOpen} onOpenChange={setIsDetailOpen} expense={selectedExpense} />
+        </>
       )}
     </>
   )

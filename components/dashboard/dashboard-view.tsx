@@ -15,7 +15,7 @@ import { FriendsList } from "@/components/friends/friends-list"
 import { useAccount, useBalance, useChainId } from "wagmi"
 import { USDC_CONTRACTS } from "@/lib/usdc-contracts"
 import { formatUnits } from "viem"
-import { getTransactions } from "@/lib/filecoin-storage"
+import { getTransactions } from "@/lib/storage"
 
 interface DashboardProps {
   walletAddress: string
@@ -45,20 +45,48 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
 
   useEffect(() => {
     const calculateTotals = async () => {
+      if (!address) return
+
       try {
         const transactions = await getTransactions()
 
         let owed = 0
         let owing = 0
+        const userAddress = address.toLowerCase().trim()
+
+        console.log("[v0] Calculating totals for:", userAddress)
 
         transactions.forEach((transaction) => {
-          if (transaction.type === "owed") {
-            owed += transaction.amount
-          } else if (transaction.type === "owing") {
-            owing += transaction.amount
+          // Improved robust checking for totals calculation
+          const shares = transaction.shares || {}
+          const paidByAddress = (transaction.paidBy || "").toLowerCase().trim()
+          const iPaid = paidByAddress === userAddress
+
+          // console.log(`[v0] Tx: ${transaction.id}, PaidBy: ${paidByAddress}, iPaid: ${iPaid}`)
+
+          // Find my share safely
+          let myShare = 0
+          Object.entries(shares).forEach(([participant, share]) => {
+            if (participant.toLowerCase().trim() === userAddress) {
+              myShare = Number(share)
+            }
+          })
+
+          const isSettled = transaction.type === "settled"
+          if (isSettled) return
+
+          if (iPaid) {
+            // If I paid, I am owed the total amount minus my own share of the expense
+            owed += transaction.amount - myShare
+          } else {
+            // Someone else paid, so I owe them my share
+            if (myShare > 0) {
+              owing += Number(myShare)
+            }
           }
         })
 
+        console.log("[v0] Calculated totals - Owed:", owed, "Owing:", owing)
         setTotalOwed(owed)
         setTotalYouOwe(owing)
       } catch (error) {
@@ -67,7 +95,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
     }
 
     calculateTotals()
-  }, [refreshTrigger])
+  }, [refreshTrigger, address])
 
   const handleExpenseCreated = () => {
     setRefreshTrigger((prev) => prev + 1)

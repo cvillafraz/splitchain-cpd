@@ -1,6 +1,12 @@
-import { base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom } from "wagmi/chains"
+import { base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom, sepolia } from "wagmi/chains"
 
 export const SUPPORTED_CHAINS = [
+  {
+    chain: sepolia,
+    name: "Ethereum Sepolia",
+    nativeCurrency: "USDC",
+    logo: "🧪",
+  },
   {
     chain: base,
     name: "Base",
