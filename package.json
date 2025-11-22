@@ -83,14 +83,5 @@
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "^1.2.4",
     "typescript": "^5"
-  },
-  "pnpm": {
-    "overrides": {
-      "@coinbase/onchainkit": "0.36.0",
-      "react": "19.0.0",
-      "react-dom": "19.0.0",
-      "viem": "2.23.5",
-      "wagmi": "2.14.12"
-    }
   }
 }
