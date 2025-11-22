@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
 import { OnchainKitProvider } from "@coinbase/onchainkit"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom } from "wagmi/chains"
 import { WagmiProvider, createConfig, http } from "wagmi"
 import { coinbaseWallet } from "wagmi/connectors"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 const wagmiConfig = createConfig({
   chains: [base, mainnet, arbitrum, polygon, optimism, avalanche, bsc, fantom],
@@ -27,8 +28,6 @@ const wagmiConfig = createConfig({
   },
 })
 
-const queryClient = new QueryClient()
-
 interface ProvidersProps {
   children: React.ReactNode
   apiKey?: string
@@ -36,6 +35,8 @@ interface ProvidersProps {
 }
 
 export function Providers({ children, apiKey, projectId }: ProvidersProps) {
+  const [queryClient] = useState(() => new QueryClient())
+
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
