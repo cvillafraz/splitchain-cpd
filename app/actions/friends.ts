@@ -13,7 +13,7 @@ export async function addFriend(userWallet: string, friendWallet: string, displa
       .from("profiles")
       .select("*")
       .eq("wallet_address", userWallet.toLowerCase())
-      .single()
+      .maybeSingle()
 
     if (!existingProfile) {
       await supabase.from("profiles").insert({
@@ -27,7 +27,7 @@ export async function addFriend(userWallet: string, friendWallet: string, displa
       .from("profiles")
       .select("*")
       .eq("wallet_address", friendWallet.toLowerCase())
-      .single()
+      .maybeSingle()
 
     if (!friendProfile) {
       await supabase.from("profiles").insert({
@@ -48,7 +48,7 @@ export async function addFriend(userWallet: string, friendWallet: string, displa
       .or(
         `and(user_wallet.eq.${userWallet.toLowerCase()},friend_wallet.eq.${friendWallet.toLowerCase()}),and(user_wallet.eq.${friendWallet.toLowerCase()},friend_wallet.eq.${userWallet.toLowerCase()})`,
       )
-      .single()
+      .maybeSingle()
 
     if (existingFriendship) {
       return { success: false, error: "Already friends" }
@@ -151,5 +151,85 @@ export async function removeFriend(userWallet: string, friendWallet: string) {
   } catch (error) {
     console.error("Error removing friend:", error)
     return { success: false, error: "Failed to remove friend" }
+  }
+}
+
+export async function inviteFriendByEmail(userWallet: string, email: string, displayName?: string) {
+  try {
+    // 1. Ensure current user has a profile
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("wallet_address", userWallet.toLowerCase())
+      .maybeSingle()
+
+    if (!existingProfile) {
+      await supabase.from("profiles").insert({
+        wallet_address: userWallet.toLowerCase(),
+        display_name: userWallet.slice(0, 8),
+      })
+    }
+
+    // 2. Check if email is already registered
+    const { data: existingUser } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", email.toLowerCase())
+      .maybeSingle()
+
+    if (existingUser) {
+      // If user already exists, add them as a friend directly
+      return await addFriend(userWallet, existingUser.wallet_address, displayName)
+    }
+
+    // 3. Check for existing pending invitation
+    const { data: existingInvite } = await supabase
+      .from("email_invites")
+      .select("*")
+      .eq("inviter_wallet", userWallet.toLowerCase())
+      .eq("invitee_email", email.toLowerCase())
+      .eq("status", "pending")
+      .maybeSingle()
+
+    if (existingInvite) {
+      return { success: true, message: "Invitation already pending" }
+    }
+
+    // 4. Create email invitation
+    const { error } = await supabase.from("email_invites").insert({
+      inviter_wallet: userWallet.toLowerCase(),
+      invitee_email: email.toLowerCase(),
+      display_name: displayName,
+      status: "pending",
+    })
+
+    if (error) throw error
+
+    // In a real app, you would send an actual email here using a service like Resend or SendGrid
+    // For now, we just store the invite in the database
+    console.log(`[v0] Email invitation created for ${email}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error inviting friend by email:", error)
+    return { success: false, error: "Failed to send invitation" }
+  }
+}
+
+export async function getPendingInvites(userWallet: string) {
+  try {
+    const { data: invites, error } = await supabase
+      .from("email_invites")
+      .select("*")
+      .eq("inviter_wallet", userWallet.toLowerCase())
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    return invites || []
+  } catch (error) {
+    console.error("Error fetching pending invites:", error)
+    return []
   }
 }

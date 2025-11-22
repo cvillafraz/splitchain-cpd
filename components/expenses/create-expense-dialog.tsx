@@ -35,6 +35,9 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
   const [friends, setFriends] = useState<Array<{ id: string; wallet_address: string; display_name: string }>>([])
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set())
   const [loadingFriends, setLoadingFriends] = useState(true)
+  const [splitType, setSplitType] = useState<"equal" | "unequal">("equal")
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
+  const [amount, setAmount] = useState<string>("")
 
   useEffect(() => {
     const loadFriends = async () => {
@@ -54,6 +57,15 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
     loadFriends()
   }, [address, open])
 
+  useEffect(() => {
+    if (!open) {
+      setSelectedFriends(new Set())
+      setCustomAmounts({})
+      setSplitType("equal")
+      setAmount("")
+    }
+  }, [open])
+
   const toggleFriend = (walletAddress: string) => {
     const newSelected = new Set(selectedFriends)
     if (newSelected.has(walletAddress)) {
@@ -64,34 +76,69 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
     setSelectedFriends(newSelected)
   }
 
+  const handleCustomAmountChange = (walletAddress: string, value: string) => {
+    setCustomAmounts((prev) => ({
+      ...prev,
+      [walletAddress]: value,
+    }))
+  }
+
+  // This prevents deselected friends' values from interfering with the validation.
+  const activeParticipants = [address, ...Array.from(selectedFriends)].filter(Boolean) as string[]
+
+  const currentTotalCustom = activeParticipants.reduce((sum, participantAddr) => {
+    return sum + (Number.parseFloat(customAmounts[participantAddr] || "0") || 0)
+  }, 0)
+
+  const remainingAmount = Number.parseFloat(amount || "0") - currentTotalCustom
+  const isCustomSplitValid = splitType === "equal" || Math.abs(remainingAmount) < 0.01
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!address) return
+
     setIsLoading(true)
 
     const formData = new FormData(e.currentTarget)
     const description = formData.get("description") as string
-    const amount = Number.parseFloat(formData.get("amount") as string)
+    const totalAmount = Number.parseFloat(amount)
 
-    console.log("[v0] Creating expense:", { description, amount, chain: selectedChain.name })
+    console.log("[v0] Creating expense:", {
+      description,
+      amount: totalAmount,
+      chain: selectedChain.name,
+      selectedFriends: Array.from(selectedFriends),
+      splitType,
+      customAmounts,
+    })
 
     try {
-      const participants = [address!, ...Array.from(selectedFriends)]
-      const shareAmount = amount / participants.length
+      const participants = activeParticipants
       const shares: Record<string, number> = {}
-      participants.forEach((participant) => {
-        shares[participant] = shareAmount
-      })
+
+      if (splitType === "equal") {
+        const shareAmount = totalAmount / participants.length
+        participants.forEach((participant) => {
+          shares[participant] = shareAmount
+        })
+      } else {
+        participants.forEach((participant) => {
+          shares[participant] = Number.parseFloat(customAmounts[participant] || "0")
+        })
+      }
+
+      console.log("[v0] Transaction details:", { participants, shares })
 
       const transaction = {
         id: `exp-${Date.now()}`,
         description,
-        amount,
+        amount: totalAmount,
         currency: selectedChain.nativeCurrency,
         chain: selectedChain.name,
         date: new Date(),
         type: "owed" as const,
         participants,
-        paidBy: address!,
+        paidBy: address,
         shares,
       }
 
@@ -100,7 +147,6 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
 
       onExpenseCreated?.()
       onOpenChange(false)
-      setSelectedFriends(new Set())
     } catch (error) {
       console.error("[v0] Failed to store transaction:", error)
     } finally {
@@ -172,6 +218,8 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
                 min="0.01"
                 step="0.01"
                 required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
               />
             </div>
           </div>
@@ -179,15 +227,77 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
             <Label htmlFor="split" className="text-right">
               Split By
             </Label>
-            <Select name="split" defaultValue="equal">
+            <Select name="split" value={splitType} onValueChange={(val: "equal" | "unequal") => setSplitType(val)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select split type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="equal">Equally</SelectItem>
+                <SelectItem value="unequal">Unequally</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {splitType === "unequal" && (
+            <div className="col-span-4 bg-muted/30 p-3 rounded-md space-y-3">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-medium">Split Breakdown</span>
+                <span className={Math.abs(remainingAmount) < 0.01 ? "text-green-500" : "text-red-500"}>
+                  {Math.abs(remainingAmount) < 0.01 ? "Balanced" : `Remaining: ${remainingAmount.toFixed(2)}`}
+                </span>
+              </div>
+
+              {address && (
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                    YO
+                  </div>
+                  <span className="text-sm flex-1">You</span>
+                  <Input
+                    type="number"
+                    className="w-24 h-8 text-right"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    value={customAmounts[address] || ""}
+                    onChange={(e) => handleCustomAmountChange(address, e.target.value)}
+                  />
+                </div>
+              )}
+
+              {!loadingFriends &&
+                Array.from(selectedFriends).map((friendAddress) => {
+                  const friend = friends.find((f) => f.wallet_address === friendAddress)
+                  if (!friend) {
+                    console.log("[v0] Warning: Friend not found for address:", friendAddress)
+                    return null
+                  }
+                  return (
+                    <div key={friendAddress} className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                        {friend.display_name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="text-sm flex-1">{friend.display_name}</span>
+                      <Input
+                        type="number"
+                        className="w-24 h-8 text-right"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value={customAmounts[friendAddress] || ""}
+                        onChange={(e) => handleCustomAmountChange(friendAddress, e.target.value)}
+                      />
+                    </div>
+                  )
+                })}
+
+              {loadingFriends && selectedFriends.size > 0 && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading friends...
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">With</Label>
             <div className="col-span-3 space-y-2">
@@ -220,7 +330,16 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || selectedFriends.size === 0}>
+            <Button
+              type="submit"
+              disabled={
+                isLoading ||
+                !amount ||
+                Number.parseFloat(amount) <= 0 ||
+                !isCustomSplitValid ||
+                activeParticipants.length === 0
+              }
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
