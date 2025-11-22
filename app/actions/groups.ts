@@ -123,3 +123,77 @@ export async function createGroup(walletAddress: string, name: string) {
     return { success: false, error: "Failed to create group" }
   }
 }
+
+export async function getGroupMembers(groupId: string) {
+  const supabase = await createClient()
+
+  try {
+    const { data: members, error } = await supabase
+      .from("group_members")
+      .select(`
+        wallet_address,
+        role,
+        joined_at,
+        profiles (
+          display_name
+        )
+      `)
+      .eq("group_id", groupId)
+
+    if (error) throw error
+
+    return members.map((m: any) => ({
+      wallet_address: m.wallet_address,
+      display_name: m.profiles?.display_name || m.wallet_address.slice(0, 8),
+      role: m.role,
+      joined_at: new Date(m.joined_at),
+    }))
+  } catch (error) {
+    console.error("Error fetching group members:", error)
+    return []
+  }
+}
+
+export async function addMemberToGroup(groupId: string, walletAddress: string) {
+  const supabase = await createClient()
+  const wallet = walletAddress.toLowerCase()
+
+  try {
+    // Check if profile exists, if not create it
+    const { data: profile } = await supabase.from("profiles").select("*").eq("wallet_address", wallet).maybeSingle()
+
+    if (!profile) {
+      const { error: createProfileError } = await supabase.from("profiles").insert({
+        wallet_address: wallet,
+        display_name: wallet.slice(0, 8),
+      })
+
+      if (createProfileError) {
+        // If error is not a unique violation (meaning it was created concurrently), throw it
+        if (createProfileError.code !== "23505") {
+          console.error("Error creating profile for new member:", createProfileError)
+          throw createProfileError
+        }
+      }
+    }
+
+    const { error } = await supabase.from("group_members").insert({
+      group_id: groupId,
+      wallet_address: wallet,
+      role: "member",
+    })
+
+    if (error) {
+      if (error.code === "23505") {
+        // Unique violation
+        return { success: false, error: "User is already a member" }
+      }
+      throw error
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error adding member:", error)
+    return { success: false, error: "Failed to add member" }
+  }
+}

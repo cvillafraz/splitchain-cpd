@@ -14,7 +14,7 @@ import { getTransactions, deleteTransaction } from "@/lib/storage"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
 
-export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
+export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: number; groupId?: string }) {
   const { address } = useAccount()
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<any[]>([])
@@ -26,9 +26,9 @@ export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
 
   const loadExpenses = async () => {
     setIsLoading(true)
-    console.log("[v0] Loading expenses from Filecoin storage")
+    console.log("[v0] Loading expenses from Supabase storage", groupId ? `for group ${groupId}` : "all")
     try {
-      const transactions = await getTransactions()
+      const transactions = await getTransactions(groupId)
       console.log("[v0] Loaded transactions:", transactions.length)
       setExpenses(transactions)
     } catch (error) {
@@ -40,7 +40,7 @@ export function ExpenseList({ refreshTrigger }: { refreshTrigger?: number }) {
 
   useEffect(() => {
     loadExpenses()
-  }, [refreshTrigger])
+  }, [refreshTrigger, groupId]) // Added groupId dependency
 
   const handleSettleUp = (e: React.MouseEvent, expense: any) => {
     e.stopPropagation()

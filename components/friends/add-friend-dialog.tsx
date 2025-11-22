@@ -15,15 +15,17 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
-import { addFriend, inviteFriendByEmail } from "@/app/actions/friends"
+import { inviteFriendByEmail } from "@/app/actions/friends"
+import { addMemberToGroup } from "@/app/actions/groups" // Imported addMemberToGroup
 
 interface AddFriendDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onFriendAdded: () => void
+  groupId?: string // Added groupId prop
 }
 
-export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriendDialogProps) {
+export function AddFriendDialog({ open, onOpenChange, onFriendAdded, groupId }: AddFriendDialogProps) {
   const [walletAddress, setWalletAddress] = useState("")
   const [email, setEmail] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -50,6 +52,15 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
       return
     }
 
+    if (!groupId) {
+      toast({
+        title: "Error",
+        description: "No group selected",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (walletAddress.toLowerCase() === address.toLowerCase()) {
       toast({
         title: "Error",
@@ -62,7 +73,7 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
     setIsLoading(true)
 
     try {
-      const result = await addFriend(address, walletAddress, displayName)
+      const result = await addMemberToGroup(groupId, walletAddress)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -70,18 +81,19 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
 
       toast({
         title: "Success",
-        description: "Friend added successfully!",
+        description: "Member added successfully!",
       })
 
       setWalletAddress("")
       setDisplayName("")
       onOpenChange(false)
       onFriendAdded()
-    } catch (error) {
-      console.error("[v0] Failed to add friend:", error)
+    } catch (error: any) {
+      // Added type annotation for error
+      console.error("[v0] Failed to add member:", error)
       toast({
         title: "Error",
-        description: "Failed to add friend. Please try again.",
+        description: error.message || "Failed to add member. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -153,8 +165,8 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Friend</DialogTitle>
-          <DialogDescription>Add a friend by their wallet address or invite them by email.</DialogDescription>
+          <DialogTitle>Add Member</DialogTitle> {/* Updated title */}
+          <DialogDescription>Add a member to this group by their wallet address.</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="wallet" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -187,7 +199,7 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
                 Cancel
               </Button>
               <Button onClick={handleAddFriend} disabled={isLoading}>
-                {isLoading ? "Adding..." : "Add Friend"}
+                {isLoading ? "Adding..." : "Add Member"}
               </Button>
             </DialogFooter>
           </TabsContent>
@@ -213,7 +225,7 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                Your friend will receive an email invitation to join Splitchain and become your friend.
+                Your friend will receive an email invitation to join Splitchain.
               </p>
             </div>
             <DialogFooter>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
-import { getFriends, removeFriend } from "@/app/actions/friends"
+import { getGroupMembers } from "@/app/actions/groups" // Imported getGroupMembers
 
 interface Friend {
   id: string
@@ -17,30 +17,41 @@ interface Friend {
 
 interface FriendsListProps {
   refreshTrigger: number
+  groupId?: string // Added groupId prop
 }
 
-export function FriendsList({ refreshTrigger }: FriendsListProps) {
+export function FriendsList({ refreshTrigger, groupId }: FriendsListProps) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { address } = useAccount()
   const { toast } = useToast()
 
   useEffect(() => {
-    if (!address) {
+    if (!address || !groupId) {
+      // Check for groupId
+      setFriends([])
       setIsLoading(false)
       return
     }
 
     const loadFriends = async () => {
-      setIsLoading(true) // Ensure loading state is reset on refresh
+      setIsLoading(true)
       try {
-        const profiles = await getFriends(address)
-        setFriends(profiles)
+        const members = await getGroupMembers(groupId)
+        const filteredMembers = members
+          .filter((m: any) => m.wallet_address.toLowerCase() !== address.toLowerCase())
+          .map((m: any) => ({
+            id: m.wallet_address,
+            wallet_address: m.wallet_address,
+            display_name: m.display_name,
+          }))
+
+        setFriends(filteredMembers)
       } catch (error) {
-        console.error("[v0] Failed to load friends:", error)
+        console.error("[v0] Failed to load members:", error)
         toast({
           title: "Error",
-          description: "Failed to load friends list",
+          description: "Failed to load group members",
           variant: "destructive",
         })
       } finally {
@@ -49,9 +60,14 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
     }
 
     loadFriends()
-  }, [address, refreshTrigger, toast])
+  }, [address, refreshTrigger, groupId, toast]) // Added groupId dependency
 
   const handleRemoveFriend = async (friendWallet: string) => {
+    toast({
+      title: "Info",
+      description: "Removing members from groups is not yet implemented.",
+    })
+    /* 
     if (!address) return
 
     try {
@@ -75,18 +91,23 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
         variant: "destructive",
       })
     }
+    */
   }
 
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">Loading friends...</CardContent>
+        <CardContent className="p-8 text-center text-muted-foreground">Loading members...</CardContent>
       </Card>
     )
   }
 
   if (friends.length === 0) {
-    return null
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground">No other members in this group yet.</CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -106,7 +127,7 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => handleRemoveFriend(friend.wallet_address)}>
-              <Trash2 className="h-4 w-4 text-destructive" />
+              <Trash2 className="h-4 w-4 text-muted-foreground opacity-50 hover:opacity-100 hover:text-destructive" />
             </Button>
           </CardContent>
         </Card>

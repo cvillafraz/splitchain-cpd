@@ -19,19 +19,19 @@ import { Loader2, Split } from "lucide-react"
 import { SUPPORTED_CHAINS } from "@/lib/chains"
 import { storeTransaction } from "@/lib/storage"
 import { useAccount } from "wagmi"
-import { getFriends } from "@/app/actions/friends"
+import { getGroupMembers } from "@/app/actions/groups" // Updated import
 import { Checkbox } from "@/components/ui/checkbox"
 
 interface CreateExpenseDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onExpenseCreated?: () => void
+  groupId?: string // Added prop
 }
 
-export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: CreateExpenseDialogProps) {
+export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated, groupId }: CreateExpenseDialogProps) {
   const { address } = useAccount()
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0])
   const [friends, setFriends] = useState<Array<{ id: string; wallet_address: string; display_name: string }>>([])
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set())
   const [loadingFriends, setLoadingFriends] = useState(true)
@@ -44,8 +44,22 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
 
       setLoadingFriends(true)
       try {
-        const friendsList = await getFriends(address)
-        setFriends(friendsList)
+        // If groupId is present, fetch group members. Otherwise fetch nothing (or could fallback)
+        if (groupId) {
+          const members = await getGroupMembers(groupId)
+          // Filter out self
+          setFriends(
+            members
+              .filter((m: any) => m.wallet_address.toLowerCase() !== address.toLowerCase())
+              .map((m: any) => ({
+                id: m.wallet_address,
+                wallet_address: m.wallet_address,
+                display_name: m.display_name,
+              })),
+          )
+        } else {
+          setFriends([])
+        }
       } catch (error) {
         console.error("[v0] Failed to load friends:", error)
       } finally {
@@ -54,7 +68,7 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
     }
 
     loadFriends()
-  }, [address, open])
+  }, [address, open, groupId])
 
   useEffect(() => {
     if (!open) {
@@ -98,13 +112,14 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
       const transaction = {
         description,
         amount: totalAmount,
-        currency: selectedChain.nativeCurrency,
-        chain: selectedChain.name,
+        currency: SUPPORTED_CHAINS[0].nativeCurrency,
+        chain: SUPPORTED_CHAINS[0].name,
         date: new Date(),
         type: "owed" as const,
         participants: participants.map((p) => p.toLowerCase()),
         paidBy: (paidBy || address).toLowerCase(),
         shares,
+        groupId, // Added groupId
       }
 
       await storeTransaction(transaction)
@@ -140,33 +155,6 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
                   className="col-span-3"
                   required
                 />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="chain" className="text-right">
-                  Chain
-                </Label>
-                <Select
-                  value={selectedChain.name}
-                  onValueChange={(name) => {
-                    const chain = SUPPORTED_CHAINS.find((c) => c.name === name)
-                    if (chain) setSelectedChain(chain)
-                  }}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select chain" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_CHAINS.map((chain) => (
-                      <SelectItem key={chain.name} value={chain.name}>
-                        <div className="flex items-center gap-2">
-                          <span>{chain.logo}</span>
-                          <span>{chain.name}</span>
-                          <span className="text-muted-foreground text-xs">({chain.nativeCurrency})</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">

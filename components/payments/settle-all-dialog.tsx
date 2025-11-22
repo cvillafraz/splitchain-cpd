@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2, Wallet, AlertCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAccount, useSendTransaction, useBalance } from "wagmi"
+import { sepolia } from "wagmi/chains"
 import { parseEther } from "viem"
 
 interface SettleAllDialogProps {
@@ -23,7 +24,7 @@ export function SettleAllDialog({ open, onOpenChange, debts, onSettled }: Settle
   const [errorMessage, setErrorMessage] = useState<string>("")
   const { address } = useAccount()
   const { sendTransactionAsync } = useSendTransaction()
-  const { data: balance } = useBalance({ address })
+  const { data: balance } = useBalance({ address, chainId: sepolia.id })
 
   const totalAmount = debts.reduce((sum, debt) => sum + debt.amount, 0)
   const currentDebt = debts[currentDebtIndex]
