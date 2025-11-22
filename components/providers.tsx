@@ -41,7 +41,7 @@ export function Providers({ children, apiKey, projectId }: ProvidersProps) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <OnchainKitProvider apiKey={apiKey} chain={sepolia} projectId={projectId} config={{ analytics: false }}>
+        <OnchainKitProvider apiKey={apiKey} chain={sepolia} projectId={projectId} analytics={{ enabled: false }}>
           {children}
         </OnchainKitProvider>
       </QueryClientProvider>

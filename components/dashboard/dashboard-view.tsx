@@ -4,12 +4,11 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Receipt, UserPlus, Activity, History, Zap, CreditCard, Settings, LayoutGrid } from "lucide-react"
+import { Plus, Receipt, UserPlus, History, Zap, CreditCard, LayoutGrid } from "lucide-react"
 import { CreateExpenseDialog } from "@/components/expenses/create-expense-dialog"
 import { ExpenseList } from "@/components/expenses/expense-list"
 import { CoinbaseFundingDialog } from "@/components/wallet/coinbase-funding-dialog"
 import { WalletManagerDialog } from "@/components/wallet/wallet-manager-dialog" // Import new dialog
-import { AnalyticsView } from "@/components/analytics/analytics-view"
 import { IntegrationsView } from "@/components/integrations/integrations-view"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { FriendsList } from "@/components/friends/friends-list"
@@ -185,15 +184,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setActiveTab("integrations")}>
-            <Settings className="h-4 w-4" />
-            <span className="sr-only">Settings</span>
-          </Button>
-          <Button onClick={() => setIsCreateOpen(true)} className="shadow-lg shadow-primary/20">
-            <Plus className="mr-2 h-4 w-4" /> New Expense
-          </Button>
-        </div>
+        <Button onClick={() => setIsCreateOpen(true)} className="shadow-lg shadow-primary/20">
+          <Plus className="mr-2 h-4 w-4" /> New Expense
+        </Button>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -210,7 +203,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         <Card className="bg-card/50 backdrop-blur-sm border-border/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total You Owe</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">-${totalYouOwe.toFixed(2)}</div>
@@ -219,7 +212,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         </Card>
         <Card
           className="bg-card/50 backdrop-blur-sm border-border/50 cursor-pointer hover:bg-card/80 transition-colors"
-          onClick={() => setIsWalletManagerOpen(true)} // Open wallet manager on click
+          onClick={() => setIsWalletManagerOpen(true)}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Wallet Balance (ETH)</CardTitle>
@@ -235,7 +228,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
                 variant="ghost"
                 className="h-8 w-8"
                 onClick={(e) => {
-                  e.stopPropagation() // Prevent card click
+                  e.stopPropagation()
                   setIsFundingOpen(true)
                 }}
               >
@@ -276,16 +269,12 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+        <TabsList className="grid w-full grid-cols-2 bg-muted/50">
           <TabsTrigger value="expenses">Recent Expenses</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="friends">Friends</TabsTrigger>
         </TabsList>
         <TabsContent value="expenses" className="mt-4">
           <ExpenseList refreshTrigger={refreshTrigger} groupId={selectedGroupId} />
-        </TabsContent>
-        <TabsContent value="analytics" className="mt-4">
-          <AnalyticsView />
         </TabsContent>
         <TabsContent value="friends" className="mt-4">
           <div className="space-y-4">
