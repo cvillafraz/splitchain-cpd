@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,7 +10,12 @@ import { ExpenseList } from "@/components/expenses/expense-list"
 import { CoinbaseFundingDialog } from "@/components/wallet/coinbase-funding-dialog"
 import { AnalyticsView } from "@/components/analytics/analytics-view"
 import { IntegrationsView } from "@/components/integrations/integrations-view"
-import { useAccount } from "wagmi"
+import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
+import { FriendsList } from "@/components/friends/friends-list"
+import { useAccount, useBalance, useChainId } from "wagmi"
+import { USDC_CONTRACTS } from "@/lib/usdc-contracts"
+import { formatUnits } from "viem"
+import { getTransactions } from "@/lib/filecoin-storage"
 
 interface DashboardProps {
   walletAddress: string
@@ -18,19 +23,62 @@ interface DashboardProps {
 
 export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const { address } = useAccount()
+  const chainId = useChainId()
   const walletAddress = address || propAddress
+
+  const { data: usdcBalance, isLoading: isLoadingBalance } = useBalance({
+    address: address as `0x${string}`,
+    token: USDC_CONTRACTS[chainId],
+    query: {
+      enabled: !!address && !!USDC_CONTRACTS[chainId],
+    },
+  })
 
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isFundingOpen, setIsFundingOpen] = useState(false)
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false)
+  const [friendsRefreshTrigger, setFriendsRefreshTrigger] = useState(0)
   const [activeTab, setActiveTab] = useState("expenses")
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [totalOwed, setTotalOwed] = useState(0)
+  const [totalYouOwe, setTotalYouOwe] = useState(0)
+
+  useEffect(() => {
+    const calculateTotals = async () => {
+      try {
+        const transactions = await getTransactions()
+
+        let owed = 0
+        let owing = 0
+
+        transactions.forEach((transaction) => {
+          if (transaction.type === "owed") {
+            owed += transaction.amount
+          } else if (transaction.type === "owing") {
+            owing += transaction.amount
+          }
+        })
+
+        setTotalOwed(owed)
+        setTotalYouOwe(owing)
+      } catch (error) {
+        console.error("[v0] Failed to calculate totals:", error)
+      }
+    }
+
+    calculateTotals()
+  }, [refreshTrigger])
 
   const handleExpenseCreated = () => {
-    console.log("[v0] Expense created, refreshing list")
     setRefreshTrigger((prev) => prev + 1)
   }
 
-  // If active tab is settings/integrations, show full view
+  const handleFriendAdded = () => {
+    setFriendsRefreshTrigger((prev) => prev + 1)
+  }
+
+  const formattedBalance = usdcBalance ? `$${Number.parseFloat(formatUnits(usdcBalance.value, 6)).toFixed(2)}` : "$0.00"
+
   if (activeTab === "integrations") {
     return (
       <div className="w-full max-w-5xl mx-auto">
@@ -70,8 +118,8 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-secondary">+$120.50</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold text-secondary">+${totalOwed.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">From active expenses</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -80,18 +128,20 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">-$45.00</div>
-            <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+            <div className="text-2xl font-bold text-destructive">-${totalYouOwe.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Pending settlements</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 backdrop-blur-sm border-border/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Wallet Balance (USDC)</CardTitle>
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold">$1,234.56</div>
+              <div className="text-2xl font-bold">
+                {isLoadingBalance ? <span className="text-muted-foreground">Loading...</span> : formattedBalance}
+              </div>
               <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setIsFundingOpen(true)}>
                 <CreditCard className="h-4 w-4" />
                 <span className="sr-only">Add Funds</span>
@@ -137,17 +187,26 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
           <AnalyticsView />
         </TabsContent>
         <TabsContent value="friends" className="mt-4">
-          <Card className="border-dashed border-2 flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
-            <UserPlus className="h-10 w-10 mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold">No friends yet</h3>
-            <p className="text-sm max-w-xs mx-auto mb-4">Add friends to start splitting expenses with them.</p>
-            <Button variant="outline">Invite Friends</Button>
-          </Card>
+          <div className="space-y-4">
+            <FriendsList refreshTrigger={friendsRefreshTrigger} />
+            <Card className="border-dashed border-2 flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
+              <UserPlus className="h-10 w-10 mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">Add Friends</h3>
+              <p className="text-sm max-w-xs mx-auto mb-4">
+                Add friends by their wallet address to start splitting expenses together.
+              </p>
+              <Button onClick={() => setIsAddFriendOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Friend
+              </Button>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
       <CreateExpenseDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} onExpenseCreated={handleExpenseCreated} />
       <CoinbaseFundingDialog open={isFundingOpen} onOpenChange={setIsFundingOpen} />
+      <AddFriendDialog open={isAddFriendOpen} onOpenChange={setIsAddFriendOpen} onFriendAdded={handleFriendAdded} />
     </div>
   )
 }
