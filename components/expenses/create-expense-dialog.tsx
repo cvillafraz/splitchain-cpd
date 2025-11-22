@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,10 +15,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Split, Users } from "lucide-react"
+import { Loader2, Split } from "lucide-react"
 import { SUPPORTED_CHAINS } from "@/lib/chains"
 import { storeTransaction } from "@/lib/filecoin-storage"
 import { useAccount } from "wagmi"
+import { getFriends } from "@/app/actions/friends"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface CreateExpenseDialogProps {
   open: boolean
@@ -30,6 +32,37 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
   const { address } = useAccount()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedChain, setSelectedChain] = useState(SUPPORTED_CHAINS[0])
+  const [friends, setFriends] = useState<Array<{ id: string; wallet_address: string; display_name: string }>>([])
+  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set())
+  const [loadingFriends, setLoadingFriends] = useState(true)
+
+  useEffect(() => {
+    const loadFriends = async () => {
+      if (!address || !open) return
+
+      setLoadingFriends(true)
+      try {
+        const friendsList = await getFriends(address)
+        setFriends(friendsList)
+      } catch (error) {
+        console.error("[v0] Failed to load friends:", error)
+      } finally {
+        setLoadingFriends(false)
+      }
+    }
+
+    loadFriends()
+  }, [address, open])
+
+  const toggleFriend = (walletAddress: string) => {
+    const newSelected = new Set(selectedFriends)
+    if (newSelected.has(walletAddress)) {
+      newSelected.delete(walletAddress)
+    } else {
+      newSelected.add(walletAddress)
+    }
+    setSelectedFriends(newSelected)
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -38,11 +71,17 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
     const formData = new FormData(e.currentTarget)
     const description = formData.get("description") as string
     const amount = Number.parseFloat(formData.get("amount") as string)
-    const splitType = formData.get("split") as string
 
     console.log("[v0] Creating expense:", { description, amount, chain: selectedChain.name })
 
     try {
+      const participants = [address!, ...Array.from(selectedFriends)]
+      const shareAmount = amount / participants.length
+      const shares: Record<string, number> = {}
+      participants.forEach((participant) => {
+        shares[participant] = shareAmount
+      })
+
       const transaction = {
         id: `exp-${Date.now()}`,
         description,
@@ -51,22 +90,17 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
         chain: selectedChain.name,
         date: new Date(),
         type: "owed" as const,
-        participants: [address || "0x000", "0xJohnDoe", "0xAliceSmith"],
-        paidBy: address || "0x000",
-        shares: {
-          [address || "0x000"]: amount / 3,
-          "0xJohnDoe": amount / 3,
-          "0xAliceSmith": amount / 3,
-        },
+        participants,
+        paidBy: address!,
+        shares,
       }
 
       const { pieceCid } = await storeTransaction(transaction)
       console.log("[v0] Transaction stored with CID:", pieceCid)
 
-      // Notify parent to refresh
       onExpenseCreated?.()
-
       onOpenChange(false)
+      setSelectedFriends(new Set())
     } catch (error) {
       console.error("[v0] Failed to store transaction:", error)
     } finally {
@@ -151,36 +185,42 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="equal">Equally</SelectItem>
-                <SelectItem value="percentage">By Percentage</SelectItem>
-                <SelectItem value="shares">By Shares</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label className="text-right pt-2">With</Label>
             <div className="col-span-3 space-y-2">
-              <div className="flex items-center gap-2 p-2 rounded-md border border-input bg-background/50">
-                <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                  JD
+              {loadingFriends ? (
+                <div className="text-sm text-muted-foreground">Loading friends...</div>
+              ) : friends.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No friends added yet. Add friends from the Friends tab to split expenses.
                 </div>
-                <span className="text-sm">John Doe</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-md border border-input bg-background/50">
-                <div className="h-6 w-6 rounded-full bg-secondary/20 flex items-center justify-center text-xs font-bold text-secondary">
-                  AS
-                </div>
-                <span className="text-sm">Alice Smith</span>
-              </div>
-              <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" type="button">
-                <Users className="mr-2 h-3 w-3" /> Add more friends
-              </Button>
+              ) : (
+                friends.map((friend) => (
+                  <div
+                    key={friend.id}
+                    className="flex items-center gap-2 p-2 rounded-md border border-input bg-background/50"
+                  >
+                    <Checkbox
+                      checked={selectedFriends.has(friend.wallet_address)}
+                      onCheckedChange={() => toggleFriend(friend.wallet_address)}
+                    />
+                    <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                      {friend.display_name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="text-sm flex-1">{friend.display_name}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || selectedFriends.size === 0}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...

@@ -5,9 +5,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
+import { getFriends, removeFriend } from "@/app/actions/friends"
 
 interface Friend {
   id: string
@@ -24,7 +24,6 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
   const [isLoading, setIsLoading] = useState(true)
   const { address } = useAccount()
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
     if (!address) {
@@ -33,37 +32,10 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
     }
 
     const loadFriends = async () => {
+      setIsLoading(true) // Ensure loading state is reset on refresh
       try {
-        // Get all friendships where current user is involved
-        const { data: friendships, error: friendshipsError } = await supabase
-          .from("friends")
-          .select("*")
-          .or(`user_wallet.eq.${address.toLowerCase()},friend_wallet.eq.${address.toLowerCase()}`)
-          .eq("status", "accepted")
-
-        if (friendshipsError) throw friendshipsError
-
-        // Extract friend wallet addresses
-        const friendWallets =
-          friendships?.map((f) =>
-            f.user_wallet.toLowerCase() === address.toLowerCase() ? f.friend_wallet : f.user_wallet,
-          ) || []
-
-        if (friendWallets.length === 0) {
-          setFriends([])
-          setIsLoading(false)
-          return
-        }
-
-        // Get friend profiles
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("wallet_address", friendWallets)
-
-        if (profilesError) throw profilesError
-
-        setFriends(profiles || [])
+        const profiles = await getFriends(address)
+        setFriends(profiles)
       } catch (error) {
         console.error("[v0] Failed to load friends:", error)
         toast({
@@ -77,20 +49,17 @@ export function FriendsList({ refreshTrigger }: FriendsListProps) {
     }
 
     loadFriends()
-  }, [address, refreshTrigger, supabase, toast])
+  }, [address, refreshTrigger, toast])
 
   const handleRemoveFriend = async (friendWallet: string) => {
     if (!address) return
 
     try {
-      const { error } = await supabase
-        .from("friends")
-        .delete()
-        .or(
-          `and(user_wallet.eq.${address.toLowerCase()},friend_wallet.eq.${friendWallet}),and(user_wallet.eq.${friendWallet},friend_wallet.eq.${address.toLowerCase()})`,
-        )
+      const result = await removeFriend(address, friendWallet)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       setFriends((prev) => prev.filter((f) => f.wallet_address !== friendWallet))
 

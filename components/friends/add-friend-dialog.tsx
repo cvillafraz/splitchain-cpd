@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createClient } from "@/lib/supabase/client"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
+import { addFriend } from "@/app/actions/friends"
 
 interface AddFriendDialogProps {
   open: boolean
@@ -28,7 +28,6 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
   const [isLoading, setIsLoading] = useState(false)
   const { address } = useAccount()
   const { toast } = useToast()
-  const supabase = createClient()
 
   const handleAddFriend = async () => {
     if (!address) {
@@ -61,66 +60,11 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded }: AddFriend
     setIsLoading(true)
 
     try {
-      // First, ensure the current user has a profile
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("wallet_address", address.toLowerCase())
-        .single()
+      const result = await addFriend(address, walletAddress, displayName)
 
-      if (!existingProfile) {
-        await supabase.from("profiles").insert({
-          wallet_address: address.toLowerCase(),
-          display_name: address.slice(0, 8),
-        })
+      if (!result.success) {
+        throw new Error(result.error)
       }
-
-      // Check if friend profile exists, if not create it
-      const { data: friendProfile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("wallet_address", walletAddress.toLowerCase())
-        .single()
-
-      if (!friendProfile) {
-        await supabase.from("profiles").insert({
-          wallet_address: walletAddress.toLowerCase(),
-          display_name: displayName || walletAddress.slice(0, 8),
-        })
-      } else if (displayName && friendProfile.display_name !== displayName) {
-        // Update display name if provided and different
-        await supabase
-          .from("profiles")
-          .update({ display_name: displayName })
-          .eq("wallet_address", walletAddress.toLowerCase())
-      }
-
-      // Check if friendship already exists
-      const { data: existingFriendship } = await supabase
-        .from("friends")
-        .select("*")
-        .or(
-          `and(user_wallet.eq.${address.toLowerCase()},friend_wallet.eq.${walletAddress.toLowerCase()}),and(user_wallet.eq.${walletAddress.toLowerCase()},friend_wallet.eq.${address.toLowerCase()})`,
-        )
-        .single()
-
-      if (existingFriendship) {
-        toast({
-          title: "Already friends",
-          description: "This user is already in your friends list",
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Add friend
-      const { error: friendError } = await supabase.from("friends").insert({
-        user_wallet: address.toLowerCase(),
-        friend_wallet: walletAddress.toLowerCase(),
-        status: "accepted",
-      })
-
-      if (friendError) throw friendError
 
       toast({
         title: "Success",
