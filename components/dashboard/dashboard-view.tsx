@@ -13,9 +13,9 @@ import { IntegrationsView } from "@/components/integrations/integrations-view"
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog"
 import { FriendsList } from "@/components/friends/friends-list"
 import { useAccount, useBalance, useChainId } from "wagmi"
-import { USDC_CONTRACTS } from "@/lib/usdc-contracts"
 import { formatUnits } from "viem"
 import { getTransactions } from "@/lib/storage"
+import { SettleAllDialog } from "@/components/payments/settle-all-dialog"
 
 interface DashboardProps {
   walletAddress: string
@@ -26,11 +26,10 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const chainId = useChainId()
   const walletAddress = address || propAddress
 
-  const { data: usdcBalance, isLoading: isLoadingBalance } = useBalance({
+  const { data: ethBalance, isLoading: isLoadingBalance } = useBalance({
     address: address as `0x${string}`,
-    token: USDC_CONTRACTS[chainId],
     query: {
-      enabled: !!address && !!USDC_CONTRACTS[chainId],
+      enabled: !!address,
     },
   })
 
@@ -42,6 +41,8 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [totalOwed, setTotalOwed] = useState(0)
   const [totalYouOwe, setTotalYouOwe] = useState(0)
+  const [isSettleAllOpen, setIsSettleAllOpen] = useState(false)
+  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number }[]>([])
 
   useEffect(() => {
     const calculateTotals = async () => {
@@ -53,18 +54,15 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         let owed = 0
         let owing = 0
         const userAddress = address.toLowerCase().trim()
+        const debtsByCreditor: Record<string, number> = {}
 
         console.log("[v0] Calculating totals for:", userAddress)
 
         transactions.forEach((transaction) => {
-          // Improved robust checking for totals calculation
           const shares = transaction.shares || {}
           const paidByAddress = (transaction.paidBy || "").toLowerCase().trim()
           const iPaid = paidByAddress === userAddress
 
-          // console.log(`[v0] Tx: ${transaction.id}, PaidBy: ${paidByAddress}, iPaid: ${iPaid}`)
-
-          // Find my share safely
           let myShare = 0
           Object.entries(shares).forEach(([participant, share]) => {
             if (participant.toLowerCase().trim() === userAddress) {
@@ -76,12 +74,15 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
           if (isSettled) return
 
           if (iPaid) {
-            // If I paid, I am owed the total amount minus my own share of the expense
             owed += transaction.amount - myShare
           } else {
-            // Someone else paid, so I owe them my share
             if (myShare > 0) {
-              owing += Number(myShare)
+              const amountToPay = Number(myShare)
+              owing += amountToPay
+              if (!debtsByCreditor[paidByAddress]) {
+                debtsByCreditor[paidByAddress] = 0
+              }
+              debtsByCreditor[paidByAddress] += amountToPay
             }
           }
         })
@@ -89,6 +90,15 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         console.log("[v0] Calculated totals - Owed:", owed, "Owing:", owing)
         setTotalOwed(owed)
         setTotalYouOwe(owing)
+
+        const debtsArray = Object.entries(debtsByCreditor)
+          .map(([addr, amt]) => ({
+            address: addr,
+            amount: amt,
+          }))
+          .filter((d) => d.amount > 0)
+
+        setOutstandingDebts(debtsArray)
       } catch (error) {
         console.error("[v0] Failed to calculate totals:", error)
       }
@@ -101,11 +111,18 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
     setRefreshTrigger((prev) => prev + 1)
   }
 
+  const handleSettled = () => {
+    setRefreshTrigger((prev) => prev + 1)
+    setIsSettleAllOpen(false)
+  }
+
   const handleFriendAdded = () => {
     setFriendsRefreshTrigger((prev) => prev + 1)
   }
 
-  const formattedBalance = usdcBalance ? `$${Number.parseFloat(formatUnits(usdcBalance.value, 6)).toFixed(2)}` : "$0.00"
+  const formattedBalance = ethBalance
+    ? `${Number.parseFloat(formatUnits(ethBalance.value, 18)).toFixed(4)} ETH`
+    : "0.0000 ETH"
 
   if (activeTab === "integrations") {
     return (
@@ -162,7 +179,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         </Card>
         <Card className="bg-card/50 backdrop-blur-sm border-border/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wallet Balance (USDC)</CardTitle>
+            <CardTitle className="text-sm font-medium">Wallet Balance (ETH)</CardTitle>
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -190,7 +207,12 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex gap-2">
-          <Button variant="outline" className="flex-1 bg-transparent">
+          <Button
+            variant="outline"
+            className="flex-1 bg-transparent"
+            onClick={() => setIsSettleAllOpen(true)}
+            disabled={totalYouOwe <= 0}
+          >
             Settle All Debts
           </Button>
           <Button variant="outline" className="flex-1 bg-transparent">
@@ -235,6 +257,12 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
       <CreateExpenseDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} onExpenseCreated={handleExpenseCreated} />
       <CoinbaseFundingDialog open={isFundingOpen} onOpenChange={setIsFundingOpen} />
       <AddFriendDialog open={isAddFriendOpen} onOpenChange={setIsAddFriendOpen} onFriendAdded={handleFriendAdded} />
+      <SettleAllDialog
+        open={isSettleAllOpen}
+        onOpenChange={setIsSettleAllOpen}
+        debts={outstandingDebts}
+        onSettled={handleSettled}
+      />
     </div>
   )
 }

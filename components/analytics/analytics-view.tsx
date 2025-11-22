@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
-import { BarChart3, TrendingUp } from "lucide-react" // Importing the missing components
+import { BarChart3, TrendingUp } from "lucide-react"
 
 const data = [
   {

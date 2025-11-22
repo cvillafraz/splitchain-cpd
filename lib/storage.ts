@@ -13,6 +13,7 @@ export interface ExpenseTransaction {
   participants: string[]
   paidBy: string
   shares: Record<string, number>
+  groupId?: string // Added optional groupId
 }
 
 export async function storeTransaction(transaction: Omit<ExpenseTransaction, "id">): Promise<ExpenseTransaction> {
@@ -34,6 +35,7 @@ export async function storeTransaction(transaction: Omit<ExpenseTransaction, "id
       paid_by: transaction.paidBy,
       participants: transaction.participants,
       shares: transaction.shares,
+      group_id: transaction.groupId, // passing group_id
     })
     .select()
     .single()
@@ -54,13 +56,21 @@ export async function storeTransaction(transaction: Omit<ExpenseTransaction, "id
     participants: data.participants,
     paidBy: data.paid_by,
     shares: data.shares,
+    groupId: data.group_id, // returning group_id
   }
 }
 
-export async function getTransactions(): Promise<ExpenseTransaction[]> {
+export async function getTransactions(groupId?: string): Promise<ExpenseTransaction[]> {
+  // added optional groupId filter
   const supabase = await createClient()
 
-  const { data, error } = await supabase.from("transactions").select("*").order("date", { ascending: false })
+  let query = supabase.from("transactions").select("*").order("date", { ascending: false })
+
+  if (groupId) {
+    query = query.eq("group_id", groupId)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error("Error fetching transactions:", error)
@@ -78,6 +88,7 @@ export async function getTransactions(): Promise<ExpenseTransaction[]> {
     participants: t.participants,
     paidBy: t.paid_by,
     shares: t.shares,
+    groupId: t.group_id, // mapping group_id
   }))
 }
 
@@ -101,6 +112,7 @@ export async function getTransactionById(id: string): Promise<ExpenseTransaction
     participants: data.participants,
     paidBy: data.paid_by,
     shares: data.shares,
+    groupId: data.group_id, // returning group_id
   }
 }
 

@@ -173,17 +173,15 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated }: Cr
                   Amount
                 </Label>
                 <div className="col-span-3 relative">
-                  <span className="absolute left-3 top-2.5 text-muted-foreground text-xs">
-                    {selectedChain.nativeCurrency}
-                  </span>
+                  <span className="absolute left-3 top-2.5 text-muted-foreground text-xs">ETH</span>
                   <Input
                     id="amount"
                     name="amount"
                     type="number"
                     placeholder="0.00"
                     className="pl-16"
-                    min="0.01"
-                    step="0.01"
+                    min="0.0001"
+                    step="0.0001"
                     required
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}

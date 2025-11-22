@@ -4,7 +4,7 @@ export const SUPPORTED_CHAINS = [
   {
     chain: sepolia,
     name: "Ethereum Sepolia",
-    nativeCurrency: "USDC",
+    nativeCurrency: "ETH",
     logo: "🧪",
   },
   {

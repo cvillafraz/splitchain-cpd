@@ -7,6 +7,7 @@ import { CheckCircle2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Dashboard } from "@/components/dashboard/dashboard-view"
 import { useConnect, useAccount } from "wagmi"
+import { ensureUserSetup } from "@/app/actions/groups" // Importing new action
 
 type Step = "welcome" | "success" | "dashboard"
 
@@ -15,6 +16,8 @@ export function OnboardingFlow() {
   const { address, isConnected } = useAccount()
   const { connectors, connect, isPending } = useConnect()
 
+  const [isInitializing, setIsInitializing] = useState(false)
+
   const handleCreateWallet = () => {
     const coinbaseConnector = connectors.find((connector) => connector.id === "coinbaseWalletSDK")
     if (coinbaseConnector) {
@@ -22,15 +25,26 @@ export function OnboardingFlow() {
     }
   }
 
-  useEffect(() => {
-    if (isConnected && address && step === "welcome") {
-      setStep("success")
-    }
-  }, [isConnected, address, step])
-
   const handleContinue = () => {
     setStep("dashboard")
   }
+
+  useEffect(() => {
+    if (isConnected && address && step === "welcome") {
+      const initUser = async () => {
+        setIsInitializing(true)
+        try {
+          await ensureUserSetup(address)
+          setStep("success")
+        } catch (error) {
+          console.error("Failed to setup user:", error)
+        } finally {
+          setIsInitializing(false)
+        }
+      }
+      initUser()
+    }
+  }, [isConnected, address, step])
 
   if (step === "dashboard") {
     return <Dashboard walletAddress={address || "Loading..."} />
@@ -61,9 +75,9 @@ export function OnboardingFlow() {
               <Button
                 onClick={handleCreateWallet}
                 className="h-12 px-8 text-lg font-medium w-full sm:w-auto"
-                disabled={isPending}
+                disabled={isPending || isInitializing} // Disable while initializing
               >
-                {isPending ? "Connecting..." : "Create Smart Wallet"}
+                {isPending || isInitializing ? "Connecting..." : "Create Smart Wallet"}
               </Button>
             </div>
 
