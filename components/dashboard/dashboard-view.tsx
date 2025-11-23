@@ -47,10 +47,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const [totalOwed, setTotalOwed] = useState(0)
   const [totalYouOwe, setTotalYouOwe] = useState(0)
   const [isSettleAllOpen, setIsSettleAllOpen] = useState(false)
-  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number; transactionIds: string[] }[]>([])
+  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number }[]>([])
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string>("")
-  const [pendingSettlementsCount, setPendingSettlementsCount] = useState(0)
 
   useEffect(() => {
     const loadGroups = async () => {
@@ -78,8 +77,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         let owed = 0
         let owing = 0
         const userAddress = address.toLowerCase().trim()
-        const debtsByCreditor: Record<string, { amount: number; transactionIds: string[] }> = {}
-        let settlementsCount = 0
+        const debtsByCreditor: Record<string, number> = {}
 
         console.log("[v0] Calculating totals for:", userAddress)
 
@@ -99,20 +97,15 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
           if (isSettled) return
 
           if (iPaid) {
-            const owedAmount = transaction.amount - myShare
-            if (owedAmount > 0) {
-              owed += owedAmount
-              settlementsCount++
-            }
+            owed += transaction.amount - myShare
           } else {
             if (myShare > 0) {
               const amountToPay = Number(myShare)
               owing += amountToPay
               if (!debtsByCreditor[paidByAddress]) {
-                debtsByCreditor[paidByAddress] = { amount: 0, transactionIds: [] }
+                debtsByCreditor[paidByAddress] = 0
               }
-              debtsByCreditor[paidByAddress].amount += amountToPay
-              debtsByCreditor[paidByAddress].transactionIds.push(transaction.id)
+              debtsByCreditor[paidByAddress] += amountToPay
             }
           }
         })
@@ -120,13 +113,11 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         console.log("[v0] Calculated totals - Owed:", owed, "Owing:", owing)
         setTotalOwed(owed)
         setTotalYouOwe(owing)
-        setPendingSettlementsCount(settlementsCount)
 
         const debtsArray = Object.entries(debtsByCreditor)
-          .map(([addr, debt]) => ({
+          .map(([addr, amt]) => ({
             address: addr,
-            amount: debt.amount,
-            transactionIds: debt.transactionIds,
+            amount: amt,
           }))
           .filter((d) => d.amount > 0)
 
@@ -206,9 +197,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-secondary">+${totalOwed.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">
-              {pendingSettlementsCount} {pendingSettlementsCount === 1 ? 'pending settlement' : 'pending settlements'}
-            </p>
+            <p className="text-xs text-muted-foreground">From active expenses</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 backdrop-blur-sm border-border/50">
