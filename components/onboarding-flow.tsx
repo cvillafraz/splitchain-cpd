@@ -93,10 +93,10 @@ export function OnboardingFlow() {
           >
             <Card className="border-secondary/20 shadow-2xl shadow-secondary/10 bg-card/50 backdrop-blur-xl">
               <CardHeader className="text-center pb-2">
-                <div className="mx-auto w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center text-secondary mb-4 ring-1 ring-secondary/20">
+                <div className="mx-auto w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mb-4 ring-1 ring-secondary/20">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
-                <CardTitle className="text-2xl text-secondary">Wallet Created!</CardTitle>
+                <CardTitle className="text-2xl">Wallet Created!</CardTitle>
                 <CardDescription>Your Web3 identity is ready.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
