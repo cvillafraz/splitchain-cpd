@@ -13,6 +13,7 @@ import { TransactionDetailDialog } from "@/components/expenses/transaction-detai
 import { getTransactions, deleteTransaction } from "@/lib/storage"
 import { useAccount } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
+import { normalizeAddress } from "@/lib/utils"
 
 export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: number; groupId?: string }) {
   const { address } = useAccount()
@@ -79,14 +80,14 @@ export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: numb
   const calculateUserAmount = (expense: any) => {
     if (!address) return { amount: 0, type: "settled" }
 
-    const userAddress = address.toLowerCase()
-    const paidByAddress = expense.paidBy?.toLowerCase() || ""
+    const userAddress = normalizeAddress(address)
+    const paidByAddress = normalizeAddress(expense.paidBy || "")
     const shares = expense.shares || {}
 
     let myShare = 0
     let isInvolved = false
     Object.entries(shares).forEach(([participant, share]) => {
-      if (participant.toLowerCase() === userAddress) {
+      if (normalizeAddress(participant) === userAddress) {
         myShare = Number(share)
         isInvolved = true
       }
@@ -107,7 +108,7 @@ export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: numb
     if (iPaid) {
       let othersOweMe = 0
       Object.entries(shares).forEach(([participant, share]) => {
-        if (participant.toLowerCase() !== userAddress) {
+        if (normalizeAddress(participant) !== userAddress) {
           othersOweMe += Number(share)
         }
       })

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAccount, useSendTransaction } from "wagmi"
 import { parseEther } from "viem"
 import { markTransactionAsSettled } from "@/lib/storage"
+import { normalizeAddress } from "@/lib/utils"
 
 interface Expense {
   id: string
@@ -33,9 +34,9 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
   const { address } = useAccount()
   const { sendTransactionAsync } = useSendTransaction()
 
-  const userAddress = address?.toLowerCase() || ""
+  const userAddress = normalizeAddress(address || "")
   const myShare = expense?.shares?.[userAddress] || 0
-  const payerAddress = expense?.paidBy?.toLowerCase() || ""
+  const payerAddress = normalizeAddress(expense?.paidBy || "")
   const payerName = payerAddress === userAddress ? "You" : `${payerAddress.slice(0, 6)}...${payerAddress.slice(-4)}`
 
   const handlePay = async () => {
