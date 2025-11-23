@@ -124,6 +124,52 @@ export async function createGroup(walletAddress: string, name: string) {
   }
 }
 
+export async function addMemberToGroup(groupId: string, walletAddress: string, displayName?: string) {
+  const supabase = await createClient()
+  const wallet = walletAddress.toLowerCase()
+
+  try {
+    // Check if profile exists, if not create it
+    const { data: profile } = await supabase.from("profiles").select("*").eq("wallet_address", wallet).maybeSingle()
+
+    if (!profile) {
+      const { error: createProfileError } = await supabase.from("profiles").insert({
+        wallet_address: wallet,
+        display_name: displayName || wallet.slice(0, 8),
+      })
+
+      if (createProfileError) {
+        // If error is not a unique violation (meaning it was created concurrently), throw it
+        if (createProfileError.code !== "23505") {
+          console.error("Error creating profile for new member:", createProfileError)
+          throw createProfileError
+        }
+      }
+    } else if (displayName && profile.display_name === profile.wallet_address.slice(0, 8)) {
+      await supabase.from("profiles").update({ display_name: displayName }).eq("wallet_address", wallet)
+    }
+
+    const { error } = await supabase.from("group_members").insert({
+      group_id: groupId,
+      wallet_address: wallet,
+      role: "member",
+    })
+
+    if (error) {
+      if (error.code === "23505") {
+        // Unique violation
+        return { success: false, error: "User is already a member" }
+      }
+      throw error
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error adding member:", error)
+    return { success: false, error: "Failed to add member" }
+  }
+}
+
 export async function getGroupMembers(groupId: string) {
   const supabase = await createClient()
 
@@ -154,46 +200,18 @@ export async function getGroupMembers(groupId: string) {
   }
 }
 
-export async function addMemberToGroup(groupId: string, walletAddress: string) {
+export async function updateMemberDisplayName(walletAddress: string, displayName: string) {
   const supabase = await createClient()
   const wallet = walletAddress.toLowerCase()
 
   try {
-    // Check if profile exists, if not create it
-    const { data: profile } = await supabase.from("profiles").select("*").eq("wallet_address", wallet).maybeSingle()
+    const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("wallet_address", wallet)
 
-    if (!profile) {
-      const { error: createProfileError } = await supabase.from("profiles").insert({
-        wallet_address: wallet,
-        display_name: wallet.slice(0, 8),
-      })
-
-      if (createProfileError) {
-        // If error is not a unique violation (meaning it was created concurrently), throw it
-        if (createProfileError.code !== "23505") {
-          console.error("Error creating profile for new member:", createProfileError)
-          throw createProfileError
-        }
-      }
-    }
-
-    const { error } = await supabase.from("group_members").insert({
-      group_id: groupId,
-      wallet_address: wallet,
-      role: "member",
-    })
-
-    if (error) {
-      if (error.code === "23505") {
-        // Unique violation
-        return { success: false, error: "User is already a member" }
-      }
-      throw error
-    }
+    if (error) throw error
 
     return { success: true }
   } catch (error) {
-    console.error("Error adding member:", error)
-    return { success: false, error: "Failed to add member" }
+    console.error("Error updating member display name:", error)
+    return { success: false, error: "Failed to update display name" }
   }
 }

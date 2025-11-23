@@ -73,7 +73,7 @@ export function AddFriendDialog({ open, onOpenChange, onFriendAdded, groupId }: 
     setIsLoading(true)
 
     try {
-      const result = await addMemberToGroup(groupId, walletAddress)
+      const result = await addMemberToGroup(groupId, walletAddress, displayName)
 
       if (!result.success) {
         throw new Error(result.error)

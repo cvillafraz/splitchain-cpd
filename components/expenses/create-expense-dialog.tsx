@@ -133,6 +133,10 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated, grou
     }
   }
 
+  const availableFriendsForSplit = friends.filter(
+    (friend) => friend.wallet_address.toLowerCase() !== paidBy?.toLowerCase(),
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] p-0 gap-0 bg-card border-border flex flex-col">
@@ -211,12 +215,14 @@ export function CreateExpenseDialog({ open, onOpenChange, onExpenseCreated, grou
                 <div className="col-span-3 space-y-2">
                   {loadingFriends ? (
                     <div className="text-sm text-muted-foreground">Loading friends...</div>
-                  ) : friends.length === 0 ? (
+                  ) : availableFriendsForSplit.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
-                      No friends added yet. Add friends from the Friends tab to split expenses.
+                      {friends.length === 0
+                        ? "No friends added yet. Add friends from the Friends tab to split expenses."
+                        : "No other friends available to split with."}
                     </div>
                   ) : (
-                    friends.map((friend) => (
+                    availableFriendsForSplit.map((friend) => (
                       <div
                         key={friend.id}
                         className="flex items-center gap-2 p-2 rounded-md border border-input bg-background/50"
