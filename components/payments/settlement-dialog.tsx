@@ -102,11 +102,6 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 bg-primary/5 rounded-lg border border-primary/10">
-                  <Zap className="h-4 w-4 text-primary" />
-                  <span>Instant settlement via X402 protocol • Settlement takes less than 5 seconds</span>
-                </div>
-
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={handleClose} className="flex-1 bg-transparent">
                     Cancel
