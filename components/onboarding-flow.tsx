@@ -62,10 +62,9 @@ export function OnboardingFlow() {
             className="space-y-8 text-center"
           >
             <div className="space-y-4">
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-                Split expenses on
-                <span className="block text-primary">the blockchain</span>
-              </h1>
+              <h1 className="text-3xl md:text-5xl tracking-tight">
+<span className="text-primary font-bold">Split</span> expenses on
+                <span className="block">the block<span className="text-primary font-bold">chain</span></span>              </h1>
               <p className="text-xl text-muted-foreground max-w-lg mx-auto">
                 No seed phrases. No headaches. Just instant, transparent settlements with your friends.
               </p>
@@ -77,7 +76,7 @@ export function OnboardingFlow() {
                 className="h-12 px-8 text-lg font-medium w-full sm:w-auto"
                 disabled={isPending || isInitializing} // Disable while initializing
               >
-                {isPending || isInitializing ? "Connecting..." : "Create Smart Wallet"}
+                {isPending || isInitializing ? "Connecting..." : "Settle expenses"}
               </Button>
             </div>
 
