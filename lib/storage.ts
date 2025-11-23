@@ -127,3 +127,18 @@ export async function deleteTransaction(id: string): Promise<void> {
     throw new Error("Failed to delete transaction")
   }
 }
+
+export async function markTransactionsAsSettled(transactionIds: string[]): Promise<void> {
+  const supabase = await createClient()
+
+  const { error } = await supabase.from("transactions").update({ type: "settled" }).in("id", transactionIds)
+
+  if (error) {
+    console.error("Error marking transactions as settled:", error)
+    throw new Error("Failed to mark transactions as settled")
+  }
+}
+
+export async function markTransactionAsSettled(transactionId: string): Promise<void> {
+  await markTransactionsAsSettled([transactionId])
+}

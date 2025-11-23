@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Loader2, Zap } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useAccount } from "wagmi"
+import { useAccount, useSendTransaction } from "wagmi"
+import { parseEther } from "viem"
+import { markTransactionAsSettled } from "@/lib/storage"
 
 interface Expense {
   id: string
@@ -29,18 +31,31 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
   const [step, setStep] = useState<SettlementStep>("review")
   const [txHash, setTxHash] = useState<string>("")
   const { address } = useAccount()
+  const { sendTransactionAsync } = useSendTransaction()
 
   const userAddress = address?.toLowerCase() || ""
   const myShare = expense?.shares?.[userAddress] || 0
   const payerAddress = expense?.paidBy?.toLowerCase() || ""
   const payerName = payerAddress === userAddress ? "You" : `${payerAddress.slice(0, 6)}...${payerAddress.slice(-4)}`
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setStep("processing")
-    setTimeout(() => {
-      setTxHash("0x8f3d...4a2c")
+
+    try {
+      const hash = await sendTransactionAsync({
+        to: payerAddress as `0x${string}`,
+        value: parseEther(myShare.toString()),
+      })
+
+      setTxHash(hash)
+
+      await markTransactionAsSettled(expense.id)
+
       setStep("success")
-    }, 2500)
+    } catch (error) {
+      console.error("[v0] Payment failed:", error)
+      setStep("review")
+    }
   }
 
   const handleClose = () => {

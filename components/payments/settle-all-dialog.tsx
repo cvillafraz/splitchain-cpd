@@ -8,11 +8,12 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAccount, useSendTransaction, useBalance } from "wagmi"
 import { sepolia } from "wagmi/chains"
 import { parseEther } from "viem"
+import { markTransactionsAsSettled } from "@/lib/storage"
 
 interface SettleAllDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  debts: { address: string; amount: number }[]
+  debts: { address: string; amount: number; transactionIds: string[] }[]
   onSettled: () => void
 }
 
@@ -37,7 +38,8 @@ export function SettleAllDialog({ open, onOpenChange, debts, onSettled }: Settle
     setErrorMessage("")
 
     try {
-      // Process debts sequentially
+      const allTransactionIds: string[] = []
+
       for (let i = 0; i < debts.length; i++) {
         setCurrentDebtIndex(i)
         const debt = debts[i]
@@ -49,8 +51,11 @@ export function SettleAllDialog({ open, onOpenChange, debts, onSettled }: Settle
           value: parseEther(debt.amount.toString()),
         })
 
-        // In a real app, we would wait for the receipt here before moving to the next
-        // await waitForTransaction({ hash })
+        allTransactionIds.push(...debt.transactionIds)
+      }
+
+      if (allTransactionIds.length > 0) {
+        await markTransactionsAsSettled(allTransactionIds)
       }
 
       setStep("success")
