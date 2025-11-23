@@ -1,7 +1,5 @@
 # SplitChain - Web3-Powered Expense Sharing
 
-![SplitChain Logo](assets/splitchain-logo.png) <!-- Add your actual logo path if available -->
-
 ## Overview
 
 **SplitChain** is a Web3-enabled expense-sharing app for frictionless group payments, built to provide instant, onchain settlement with embedded wallets, real-time micropayments, and crypto-friendly funding. Users can split bills, settle in crypto, fund wallets via Coinbase Pay, and access spending insights—all within an intuitive interface.
