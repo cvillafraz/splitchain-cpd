@@ -47,7 +47,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const [totalOwed, setTotalOwed] = useState(0)
   const [totalYouOwe, setTotalYouOwe] = useState(0)
   const [isSettleAllOpen, setIsSettleAllOpen] = useState(false)
-  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number; transactionIds: string[] }[]>([])
+  const [outstandingDebts, setOutstandingDebts] = useState<
+    { address: string; amount: number; transactionIds: string[] }[]
+  >([])
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string>("")
   const [pendingSettlementsCount, setPendingSettlementsCount] = useState(0)
@@ -205,9 +207,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-secondary">+${totalOwed.toFixed(2)}</div>
+            <div className="text-2xl font-bold">+{totalOwed.toFixed(4)} ETH</div>
             <p className="text-xs text-muted-foreground">
-              {pendingSettlementsCount} {pendingSettlementsCount === 1 ? 'pending settlement' : 'pending settlements'}
+              {pendingSettlementsCount} {pendingSettlementsCount === 1 ? "pending settlement" : "pending settlements"}
             </p>
           </CardContent>
         </Card>
@@ -217,7 +219,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">-${totalYouOwe.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-destructive">-{totalYouOwe.toFixed(4)} ETH</div>
             <p className="text-xs text-muted-foreground">Pending settlements</p>
           </CardContent>
         </Card>

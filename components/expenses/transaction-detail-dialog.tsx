@@ -45,7 +45,7 @@ export function TransactionDetailDialog({ open, onOpenChange, expense }: Transac
 
           <div className="text-center">
             <h2 className="text-3xl font-bold">
-              {expense.amount} {expense.currency}
+              {expense.amount.toFixed(4)} {expense.currency}
             </h2>
             <p className="text-muted-foreground mt-1">{expense.description}</p>
           </div>
@@ -92,7 +92,7 @@ export function TransactionDetailDialog({ open, onOpenChange, expense }: Transac
                     </span>
                   </div>
                   <span className="text-sm font-mono">
-                    {Number(share).toFixed(2)} {expense.currency}
+                    {Number(share).toFixed(4)} {expense.currency}
                   </span>
                 </div>
               )
@@ -101,8 +101,8 @@ export function TransactionDetailDialog({ open, onOpenChange, expense }: Transac
 
           <div className="text-center text-sm text-muted-foreground pt-2 border-t">
             {isPayer
-              ? `You paid ${expense.amount} ${expense.currency} and are owed ${(expense.amount - myShare).toFixed(2)} ${expense.currency}`
-              : `You owe ${myShare.toFixed(2)} ${expense.currency} to the payer`}
+              ? `You paid ${expense.amount.toFixed(4)} ${expense.currency} and are owed ${(expense.amount - myShare).toFixed(4)} ${expense.currency}`
+              : `You owe ${myShare.toFixed(4)} ${expense.currency} to the payer`}
           </div>
         </div>
       </DialogContent>

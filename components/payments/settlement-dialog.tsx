@@ -84,7 +84,7 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
                 <div className="p-6 bg-muted rounded-xl border border-border/50">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm text-muted-foreground">Payment Amount</span>
-                    <div className="text-3xl font-bold">${myShare.toFixed(2)}</div>
+                    <div className="text-3xl font-bold">{myShare.toFixed(4)} ETH</div>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -97,7 +97,7 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Network Fee</span>
-                      <span className="font-medium text-secondary">$0.00</span>
+                      <span className="font-medium text-secondary">~0.00001 ETH</span>
                     </div>
                   </div>
                 </div>
@@ -163,7 +163,7 @@ export function SettlementDialog({ open, onOpenChange, expense }: SettlementDial
               <div className="p-4 bg-muted rounded-xl border border-border/50 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount Paid</span>
-                  <span className="font-bold">${myShare.toFixed(2)}</span>
+                  <span className="font-bold">{myShare.toFixed(4)} ETH</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">To</span>
