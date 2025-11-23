@@ -84,13 +84,25 @@ export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: numb
     const shares = expense.shares || {}
 
     let myShare = 0
+    let isInvolved = false
     Object.entries(shares).forEach(([participant, share]) => {
       if (participant.toLowerCase() === userAddress) {
         myShare = Number(share)
+        isInvolved = true
       }
     })
 
     const iPaid = paidByAddress === userAddress
+
+    // If user is neither the payer nor in shares, they're not involved
+    if (!iPaid && !isInvolved) {
+      return { amount: 0, type: "not_involved" }
+    }
+
+    // Check if transaction is already marked as settled
+    if (expense.type === "settled") {
+      return { amount: 0, type: "settled" }
+    }
 
     if (iPaid) {
       let othersOweMe = 0
@@ -99,9 +111,9 @@ export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: numb
           othersOweMe += Number(share)
         }
       })
-      return { amount: othersOweMe, type: othersOweMe > 0.01 ? "owed" : "settled" }
+      return { amount: othersOweMe, type: othersOweMe > 0 ? "owed" : "settled" }
     } else {
-      return { amount: myShare, type: myShare > 0.01 ? "owing" : "settled" }
+      return { amount: myShare, type: myShare > 0 ? "owing" : "settled" }
     }
   }
 
@@ -168,23 +180,25 @@ export function ExpenseList({ refreshTrigger, groupId }: { refreshTrigger?: numb
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div
-                        className={`font-bold ${
-                          userType === "owed"
-                            ? "text-secondary"
-                            : userType === "owing"
-                              ? "text-destructive"
-                              : "text-muted-foreground"
-                        }`}
-                      >
-                        {userType === "owed" ? "+" : userType === "owing" ? "-" : ""}
-                        {userAmount.toFixed(2)} {expense.currency}
+                    {userType !== "not_involved" && (
+                      <div className="text-right">
+                        <div
+                          className={`font-bold ${
+                            userType === "owed"
+                              ? "text-secondary"
+                              : userType === "owing"
+                                ? "text-destructive"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {userType === "owed" ? "+" : userType === "owing" ? "-" : ""}
+                          {userAmount.toFixed(4)} {expense.currency}
+                        </div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                          {userType === "owed" ? "you're owed" : userType === "owing" ? "you owe" : "settled"}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                        {userType === "owed" ? "you're owed" : userType === "owing" ? "you owe" : "not involved"}
-                      </p>
-                    </div>
+                    )}
                     {userType === "owing" && (
                       <Button
                         onClick={(e) => handleSettleUp(e, expense)}
