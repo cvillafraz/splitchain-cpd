@@ -8,14 +8,11 @@
 
 - **Embedded Wallets for Easy Onboarding:**  
   New users receive secure, encrypted wallets automatically—no seed phrases or crypto complexity.
-- **Instant Settlement with X402 Payments:**  
-  Real-time micropayments and instant confirmation for all group expenses.
 - **Expense Creation & Splitting:**  
   Easily record, split, and manage group expenses. View individual shares and history at a glance.
 - **Coinbase Pay Integration:**  
   Fund your wallet with fiat currency in seconds using Coinbase Pay—no need to pre-convert crypto.
-- **Basic Analytics:**  
-  Gain transparent insights on your spending and group activity with real-time charts and metrics.
+
 
 ## Getting Started
 
@@ -62,16 +59,12 @@
    Pay out your share or collect from others with real-time confirmation.
 4. **Fund Wallet:**  
    Use Coinbase Pay for one-click fiat-to-crypto funding.
-5. **Track Analytics:**  
-   Access charts and records of your spending and group activity.
 
 ## Architecture & Components
 
 - **CDP Embedded Wallets:** Seamless onboarding and secure wallet creation
-- **X402 Payments:** Real-time, onchain micropayment processing
 - **CDP Trade API:** Automatic token swaps underneath the hood
 - **Coinbase Pay:** Native integration for fiat wallet top-ups
-- **Analytics Service:** Backend for user and group spending insights
 - **Notification Service:** Instant transaction and onboarding alerts
 
 ## Security & Compliance
