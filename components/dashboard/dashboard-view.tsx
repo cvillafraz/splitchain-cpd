@@ -19,7 +19,6 @@ import { getTransactions } from "@/lib/storage"
 import { SettleAllDialog } from "@/components/payments/settle-all-dialog"
 import { getUserGroups, type Group } from "@/app/actions/groups"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { normalizeAddress } from "@/lib/utils"
 
 interface DashboardProps {
   walletAddress: string
@@ -48,7 +47,7 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
   const [totalOwed, setTotalOwed] = useState(0)
   const [totalYouOwe, setTotalYouOwe] = useState(0)
   const [isSettleAllOpen, setIsSettleAllOpen] = useState(false)
-  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number; transactionIds: string[] }[]>([])
+  const [outstandingDebts, setOutstandingDebts] = useState<{ address: string; amount: number }[]>([])
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string>("")
 
@@ -77,19 +76,19 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
 
         let owed = 0
         let owing = 0
-        const userAddress = normalizeAddress(address || "")
-        const debtsByCreditor: Record<string, { amount: number; transactionIds: string[] }> = {}
+        const userAddress = address.toLowerCase().trim()
+        const debtsByCreditor: Record<string, number> = {}
 
         console.log("[v0] Calculating totals for:", userAddress)
 
         transactions.forEach((transaction) => {
           const shares = transaction.shares || {}
-          const paidByAddress = normalizeAddress(transaction.paidBy || "")
+          const paidByAddress = (transaction.paidBy || "").toLowerCase().trim()
           const iPaid = paidByAddress === userAddress
 
           let myShare = 0
           Object.entries(shares).forEach(([participant, share]) => {
-            if (normalizeAddress(participant) === userAddress) {
+            if (participant.toLowerCase().trim() === userAddress) {
               myShare = Number(share)
             }
           })
@@ -104,10 +103,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
               const amountToPay = Number(myShare)
               owing += amountToPay
               if (!debtsByCreditor[paidByAddress]) {
-                debtsByCreditor[paidByAddress] = { amount: 0, transactionIds: [] }
+                debtsByCreditor[paidByAddress] = 0
               }
-              debtsByCreditor[paidByAddress].amount += amountToPay
-              debtsByCreditor[paidByAddress].transactionIds.push(transaction.id)
+              debtsByCreditor[paidByAddress] += amountToPay
             }
           }
         })
@@ -117,10 +115,9 @@ export function Dashboard({ walletAddress: propAddress }: DashboardProps) {
         setTotalYouOwe(owing)
 
         const debtsArray = Object.entries(debtsByCreditor)
-          .map(([addr, data]) => ({
+          .map(([addr, amt]) => ({
             address: addr,
-            amount: data.amount,
-            transactionIds: data.transactionIds,
+            amount: amt,
           }))
           .filter((d) => d.amount > 0)
 
